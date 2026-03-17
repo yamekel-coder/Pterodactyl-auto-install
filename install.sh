@@ -1,52 +1,100 @@
 #!/bin/bash
 
-# === ЦВЕТА ===
+# ===== БРЕНД =====
+BRAND="YourStudio"
+COLOR_MAIN="\e[38;5;208m"
 GREEN="\e[32m"
 RED="\e[31m"
 YELLOW="\e[33m"
 RESET="\e[0m"
 
-# === ЛОГИ ===
+# ===== ЛОГИ =====
 exec > >(tee -i install.log)
 exec 2>&1
 
-clear
-echo -e "${GREEN}"
-echo "======================================"
-echo "   YourStudio Pterodactyl Installer"
-echo "======================================"
-echo -e "${RESET}"
+# ===== UI =====
+line(){ echo -e "${COLOR_MAIN}=========================================${RESET}"; }
 
-# === ПРОВЕРКИ ===
-if [[ $EUID -ne 0 ]]; then
-   echo -e "${RED}Запусти от root!${RESET}"
-   exit 1
-fi
+logo(){
+    clear
+    line
+    echo -e "${COLOR_MAIN}   ${BRAND} Pterodactyl Installer${RESET}"
+    echo -e "${COLOR_MAIN}   Premium Hosting Setup${RESET}"
+    line
+    echo ""
+}
 
-OS=$(lsb_release -rs)
-if [[ "$OS" != "24.04" ]]; then
-    echo -e "${YELLOW}Рекомендуется Ubuntu 24.04${RESET}"
-fi
+info(){ echo -e "${GREEN}[INFO]${RESET} $1"; }
+warn(){ echo -e "${RED}[ERROR]${RESET} $1"; }
 
-# === МЕНЮ ===
-echo "Выбери действие:"
-echo "1) Установить Panel"
-echo "2) Установить Wings"
-echo "3) Установить всё"
-read -p "Введите цифру: " OPTION
+# ===== ПРОВЕРКИ =====
+preflight(){
+    logo
+    info "Проверка системы..."
 
-# === ВВОД ДАННЫХ ===
-read -p "Домен панели: " PANEL_DOMAIN
-read -p "Email: " EMAIL
-read -p "Username: " USERNAME
-read -p "Имя: " FIRST_NAME
-read -p "Фамилия: " LAST_NAME
-read -s -p "Пароль: " PASSWORD; echo
-read -s -p "Пароль БД: " DB_PASS; echo
+    if [ "$EUID" -ne 0 ]; then
+        warn "Запусти от root!"
+        exit 1
+    fi
 
-# === ФУНКЦИЯ УСТАНОВКИ PANEL ===
-install_panel() {
-    echo -e "${GREEN}Установка Panel...${RESET}"
+    OS=$(lsb_release -rs)
+    if [[ "$OS" != "24.04" ]]; then
+        warn "Рекомендуется Ubuntu 24.04"
+    fi
+
+    ARCH=$(uname -m)
+    if [[ "$ARCH" != "x86_64" ]]; then
+        warn "Только x64!"
+        exit 1
+    fi
+
+    info "OK ✔"
+}
+
+# ===== МЕНЮ =====
+menu(){
+    echo ""
+    line
+    echo "1) Установить Panel"
+    echo "2) Установить Wings"
+    echo "3) Установить ВСЁ"
+    echo "4) Обновить Panel"
+    echo "5) Обновить Wings"
+    line
+    read -p "Выбор: " OPTION
+}
+
+# ===== ВВОД =====
+user_input(){
+    echo ""
+    read -p "Домен: " PANEL_DOMAIN
+    read -p "Email: " EMAIL
+    read -p "Username: " USERNAME
+    read -p "Имя: " FIRST_NAME
+    read -p "Фамилия: " LAST_NAME
+    read -s -p "Пароль: " PASSWORD; echo
+    read -s -p "Пароль БД: " DB_PASS; echo
+}
+
+# ===== DNS =====
+dns_check(){
+    info "Проверка DNS..."
+    SERVER_IP=$(curl -s ifconfig.me)
+    DOMAIN_IP=$(dig +short $PANEL_DOMAIN)
+
+    if [[ "$SERVER_IP" != "$DOMAIN_IP" ]]; then
+        warn "DNS не совпадает!"
+        warn "Server: $SERVER_IP"
+        warn "Domain: $DOMAIN_IP"
+        exit 1
+    fi
+
+    info "DNS OK ✔"
+}
+
+# ===== PANEL (ТВОЙ КОД) =====
+install_panel(){
+    info "Установка Panel..."
 
     apt update && apt upgrade -y
 
@@ -65,12 +113,11 @@ install_panel() {
     mysql -u root -p${DB_PASS} -e "GRANT ALL PRIVILEGES ON panel.* TO 'pterodactyl'@'127.0.0.1';"
     mysql -u root -p${DB_PASS} -e "FLUSH PRIVILEGES;"
 
-    # PANEL
     mkdir -p /var/www/pterodactyl
     cd /var/www/pterodactyl
 
     curl -Lo panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
-tar -xzvf panel.tar.gz
+    tar -xzvf panel.tar.gz
 
     chmod -R 755 storage/* bootstrap/cache/
 
@@ -132,21 +179,20 @@ server {
 EOL
 
     ln -s /etc/nginx/sites-available/pterodactyl /etc/nginx/sites-enabled/
-systemctl restart nginx
+    systemctl restart nginx
 
     # SSL
     apt install -y certbot python3-certbot-nginx
     certbot --nginx -d ${PANEL_DOMAIN} --non-interactive --agree-tos -m ${EMAIL}
 
-    echo -e "${GREEN}Panel установлен!${RESET}"
+    info "Panel установлен ✔"
 }
 
-# === WINGS ===
-install_wings() {
-    echo -e "${GREEN}Установка Wings...${RESET}"
+# ===== WINGS (ТВОЙ КОД) =====
+install_wings(){
+    info "Установка Wings..."
 
     apt install -y docker.io curl
-
     systemctl enable docker
     systemctl start docker
 
@@ -156,17 +202,25 @@ install_wings() {
     curl -L -o wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
     chmod +x wings
 
-    echo -e "${YELLOW}Скопируй конфиг Wings из панели!${RESET}"
+    warn "Вставь конфиг Wings из панели!"
 }
 
-# === ВЫБОР ===
+# ===== MAIN =====
+preflight
+menu
+user_input
+dns_check
+
 case $OPTION in
     1) install_panel ;;
     2) install_wings ;;
     3) install_panel; install_wings ;;
-    *) echo -e "${RED}Неверный выбор${RESET}" ;;
+    4) cd /var/www/pterodactyl && php artisan p:upgrade ;;
+    5) curl -L -o /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64 ;;
+    *) warn "Неверный выбор" ;;
 esac
 
-echo ""
-echo -e "${GREEN}УСТАНОВКА ЗАВЕРШЕНА${RESET}"
-echo "Логи: install.log"
+line
+info "Установка завершена!"
+echo -e "${COLOR_MAIN}https://${PANEL_DOMAIN}${RESET}"
+line
