@@ -1,18 +1,15 @@
 #!/bin/bash
 
-# ===== БРЕНД =====
-BRAND="YourStudio"
+BRAND="CookieDev"
 COLOR_MAIN="\e[38;5;208m"
 GREEN="\e[32m"
 RED="\e[31m"
 YELLOW="\e[33m"
 RESET="\e[0m"
 
-# ===== ЛОГИ =====
 exec > >(tee -i install.log)
 exec 2>&1
 
-# ===== UI =====
 line(){ echo -e "${COLOR_MAIN}=========================================${RESET}"; }
 
 logo(){
@@ -27,7 +24,6 @@ logo(){
 info(){ echo -e "${GREEN}[INFO]${RESET} $1"; }
 warn(){ echo -e "${RED}[ERROR]${RESET} $1"; }
 
-# ===== ПРОВЕРКИ =====
 preflight(){
     logo
     info "Проверка системы..."
@@ -51,7 +47,6 @@ preflight(){
     info "OK ✔"
 }
 
-# ===== МЕНЮ =====
 menu(){
     echo ""
     line
@@ -64,7 +59,6 @@ menu(){
     read -p "Выбор: " OPTION
 }
 
-# ===== ВВОД =====
 user_input(){
     echo ""
     read -p "Домен: " PANEL_DOMAIN
@@ -76,7 +70,6 @@ user_input(){
     read -s -p "Пароль БД: " DB_PASS; echo
 }
 
-# ===== DNS =====
 dns_check(){
     info "Проверка DNS..."
     SERVER_IP=$(curl -s ifconfig.me)
@@ -92,7 +85,6 @@ dns_check(){
     info "DNS OK ✔"
 }
 
-# ===== PANEL (ТВОЙ КОД) =====
 install_panel(){
     info "Установка Panel..."
 
@@ -158,7 +150,6 @@ EOF
 
     chown -R www-data:www-data /var/www/pterodactyl/*
 
-    # NGINX
     cat <<EOL > /etc/nginx/sites-available/pterodactyl
 server {
     listen 80;
@@ -188,7 +179,6 @@ EOL
     info "Panel установлен ✔"
 }
 
-# ===== WINGS (ТВОЙ КОД) =====
 install_wings(){
     info "Установка Wings..."
 
@@ -205,7 +195,6 @@ install_wings(){
     warn "Вставь конфиг Wings из панели!"
 }
 
-# ===== MAIN =====
 preflight
 menu
 user_input
