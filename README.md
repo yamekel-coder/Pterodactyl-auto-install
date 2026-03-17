@@ -186,7 +186,6 @@ sudo systemctl status php8.3-fpm
 
 ## 💬 Поддержка
 
-- 📧 Email: yamekel-coder@example.com
 - 🐛 Issues: [GitHub Issues](https://github.com/yamekel-coder/Pterodactyl-auto-install/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/yamekel-coder/Pterodactyl-auto-install/discussions)
 
